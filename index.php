@@ -1,37 +1,34 @@
 <?php
 session_start();
 include('config/db_connect.php');
+$user_id = isset($_SESSION['u_id']) ? intval($_SESSION['u_id']) : 0;
+
+
 
 // Silme işlemi
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'], $_POST['post_id'], $_POST['type'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'], $_POST['post_id'])) {
     $post_id_to_delete = intval($_POST['post_id']);
-    $type_to_delete = $_POST['type'];
 
-    switch ($type_to_delete) {
-        case 'food':
-            $sql_del = "DELETE FROM foods WHERE f_id = ?";
-            break;
-        case 'book':
-            $sql_del = "DELETE FROM book WHERE b_id = ?";
-            break;
-        case 'movie':
-            $sql_del = "DELETE FROM movie WHERE m_id = ?";
-            break;
-        case 'travel':
-            $sql_del = "DELETE FROM travel WHERE t_id = ?";
-            break;
-        case 'spot':
-            $sql_del = "DELETE FROM spot WHERE s_id = ?";
-            break;
-        default:
-            die("Bilinmeyen paylaşım türü.");
+    // 1. Resim dosyasını bul
+    $get_image_sql = "SELECT p_image FROM posts WHERE id = ?";
+    $stmt = $conn->prepare($get_image_sql);
+    $stmt->bind_param("i", $post_id_to_delete);
+    $stmt->execute();
+    $stmt->bind_result($image_name);
+    $stmt->fetch();
+    $stmt->close();
+
+    // 2. Eğer varsa dosyayı sil
+    if (!empty($image_name)) {
+        $image_path = 'uploads/' . $image_name;
+        if (file_exists($image_path)) {
+            unlink($image_path); // Dosyayı sil
+        }
     }
 
+    // 3. Postu veritabanından sil
+    $sql_del = "DELETE FROM posts WHERE id = ?";
     $stmt = $conn->prepare($sql_del);
-    if ($stmt === false) {
-        die("SQL prepare hatası: " . htmlspecialchars($conn->error));
-    }
-
     $stmt->bind_param("i", $post_id_to_delete);
     $stmt->execute();
 
@@ -39,37 +36,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'], $_POST['pos
     exit;
 }
 
+
 $category_id = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 $where = [];
 if ($category_id > 0) {
-    $where[] = "all_posts.c_id = $category_id";
+    $where[] = "posts.c_id = $category_id";
 }
 if ($search !== '') {
     $search_escaped = mysqli_real_escape_string($conn, $search);
-    $where[] = "all_posts.title LIKE '%$search_escaped%'";
+    $where[] = "posts.title LIKE '%$search_escaped%'";
 }
 
 $where_sql = count($where) > 0 ? "WHERE " . implode(" AND ", $where) : "";
 
 
 $sql = "
-SELECT all_posts.*, users.username 
-FROM (
-  (SELECT f_id AS id, c_id, title, ingredients AS description, NULL AS image, u_id, created_at, 'food' AS type FROM foods)
-  UNION ALL
-  (SELECT b_id AS id, c_id, title, b_description AS description, b_image AS image, u_id, created_at, 'book' AS type FROM book)
-  UNION ALL
-  (SELECT m_id AS id, c_id, title, m_description AS description, m_image AS image, u_id, created_at, 'movie' AS type FROM movie)
-  UNION ALL
-  (SELECT t_id AS id, c_id, title, t_description AS description, t_image AS image, u_id, created_at, 'travel' AS type FROM travel)
-  UNION ALL
-  (SELECT s_id AS id, c_id, title, description, image, u_id, created_at, 'spot' AS type FROM spot)
-) AS all_posts
-JOIN users ON all_posts.u_id = users.u_id
+SELECT posts.*, users.username, category.c_name,
+       (SELECT COALESCE(SUM(vote), 0) FROM votes WHERE post_id = posts.id) AS vote_total
+FROM posts
+JOIN users ON posts.u_id = users.u_id
+JOIN category ON posts.c_id = category.c_id
 $where_sql
-ORDER BY all_posts.created_at DESC
+ORDER BY posts.created_at DESC, posts.id DESC
 ";
 
 
@@ -89,8 +79,8 @@ $posts = mysqli_fetch_all($result, MYSQLI_ASSOC);
 
 
 <h4 class="center brand-text" style="font-size: 40px; margin-bottom: 24px;">Posts</h4>
-
-<aside class="filter">
+<div class="card-container">
+    <div class="g_left">
         <form class="z-depth-1 filter-card " method="GET" action="index.php">
             <h5 class="text">Filters</h5>
             <button class="btn-small hover-effect brand btn" type="submit" name="category_id" value="0">All Posts</button>
@@ -116,72 +106,146 @@ $posts = mysqli_fetch_all($result, MYSQLI_ASSOC);
                 ?>
             </p>
         <?php endif; ?>
-        </form>
-
-    </aside>
-
-<div class="container"> 
-    <!-- POST ALANI -->
-    <div style="flex: 1; max-width: 650px;">
-        <?php foreach($posts as $post): ?>
-            <!-- Mevcut post kartların burada kalacak -->
-        <?php endforeach; ?>
+                </form>
     </div>
+ 
+
+    <div class="g_center">              
+    <!-- POST ALANI -->
+    <div style="flex: 1; max-width: 650px;"></div>
     <?php foreach($posts as $post): ?>
-        <div class="card hover-effect z-depth-1">
+        <div class="card hover-effect z-depth-1" >
             <div class="center" style="margin: 10px 8px;" >
                 <a class="btn-small btn hover-effect brand z-depth-1" href="profile.php?u_id=<?php echo $post['u_id']; ?>">
                     <?php echo htmlspecialchars($post['username']); ?> <i class="fa-regular fa-user" style="margin-left:3px; font-size:0.95em;"></i>
                 </a>
+                    <small class="text" style="font-size: 14px; position: absolute; right: 28px; top: 23px;">
+                        <?php echo date('d M Y', strtotime($post['created_at'] ?? '')); ?>
+                    </small>
                 <h6 class="text">
                     <?php 
                         $emoji_map = [
-                            'food' => '🍕',
-                            'book' => '📚',
-                            'movie' => '🎬',
-                            'travel' => '✈️',
-                            'spot' => '📍',
+                            '1' => '🍕',
+                            '2' => '📚',
+                            '3' => '🎬',
+                            '4' => '✈️',
+                            '5' => '📍',
                         ];
-                        echo ($emoji_map[$post['type']] ?? '') . ' ' . htmlspecialchars($post['title']); 
+                        echo ($emoji_map[$post['c_id']] ?? '') . ' ' . htmlspecialchars($post['title']); 
                     ?>
                 </h6>
-                
-                <?php if ($post['type'] === 'food'): ?>
-                    <ul class="text">
-                        <?php foreach(explode(',', $post['description']) as $ing): ?>
-                            <li style="margin-bottom:2px;"><?php echo htmlspecialchars(trim($ing)); ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                <?php else: ?>
-                    <p class="text"><?php echo nl2br(htmlspecialchars($post['description'])); ?></p>
-                <?php endif; ?>
-
-                <?php if (!empty($post['image'])): ?>
+                    <p class="text">
+                        <?php 
+                            echo nl2br(htmlspecialchars(stripcslashes(mb_substr(strip_tags($post['p_description']), 0, 150)))) .'...'; 
+                        ?>
+                    </p>
+                <?php if (!empty($post['p_image'])): ?>
                     <div style="margin-top:8px;">
-                        <img src="uploads/<?php echo htmlspecialchars($post['image']); ?>" alt="<?php echo htmlspecialchars($post['title']); ?>" style="max-width:90%; border-radius: 10px;">
+                        <img src="uploads/<?php echo htmlspecialchars($post['p_image']); ?>" alt="<?php echo htmlspecialchars($post['title']); ?>" style="max-width:90%; border-radius: 10px;">
                     </div>
                 <?php endif; ?>
-            </div>
 
-            <div class="card-action right-align" style="margin-top:12px;">
-                <small class="text" style="position: absolute; left:20px; bottom:20px; font-size: 14px;">
-                    <?php echo date('d M Y', strtotime($post['created_at'] ?? '')); ?>
-                </small>
-
-                <?php if (isset($_SESSION['u_role']) && $_SESSION['u_role'] === 'admin'): ?>
-                    <form method="POST" style="display:inline;">
-                        <input type="hidden" name="post_id" value="<?php echo $post['id']; ?>">
-                        <input type="hidden" name="type" value="<?php echo htmlspecialchars($post['type']); ?>">
-                        <button type="submit" name="delete"  class="btn-small hover-effect btn brand" onclick="return confirm('Are you sure you want to delete?');">
-                            <i class="fa fa-trash"></i> Delete
+                    <form class="comment-form" data-post-id="<?= $post['id']; ?>" method="post" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                        <input type="hidden" name="post_id" value="<?= $post['id']; ?>">
+                        <input class="text comment-input" autocomplete="off" type="text" name="comment" ></input>
+                        <button type="submit" class="btn-small hover-effect brand btn">
+                            <i class="fa-solid fa-arrow-right"></i>
                         </button>
                     </form>
-                <?php endif; ?>
+                    <div id="comments-<?= $post['id']; ?>">
+                    <?php
+                    
+                    // Yorumları çekme
+                    $comment_stmt = $conn->prepare("SELECT comments.comment, users.username
+                                                    FROM comments 
+                                                    JOIN users ON comments.user_id = users.u_id 
+                                                    WHERE comments.post_id = ? 
+                                                    ORDER BY comments.created_at DESC
+                                                    LIMIT 3");
+                    if (!$comment_stmt) {
+                        die("Sorgu hazırlanamadı: " . $conn->error);
+                    }                               
+                    $comment_stmt->bind_param("i", $post['id']);
+                    $comment_stmt->execute();
+                    $comments_result = $comment_stmt->get_result();
+                    while ($c = $comments_result->fetch_assoc()):
+                    ?>
+                        <div class="comment-list text" style="margin-left:10px; font-size: 14px; color:#555;">
+                            <strong><?= htmlspecialchars($c['username']) ?></strong> <?= nl2br(htmlspecialchars($c['comment'])) ?>
+                        </div>
+                    <?php endwhile; $comment_stmt->close(); ?>
+                    </div>
             </div>
         </div>
-    <?php endforeach; ?>
+        
+<div class="card-action" style="margin-top:12px; display: flex; justify-content: space-between; align-items: center;">
+    <a class="btn-small btn hover-effect brand z-depth-1" href="details.php?id=<?= $post['id']; ?>">Details</a>
+
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <?php 
+            // Oy sayısını çekiyoruz (oylar 1 veya -1)
+            $sql_vote = "SELECT COALESCE(SUM(vote), 0) as vote_sum FROM votes WHERE post_id = ?";
+            $stmt_vote = $conn->prepare($sql_vote);
+            $stmt_vote->bind_param('i', $post['id']);
+            $stmt_vote->execute();
+            $res_vote = $stmt_vote->get_result()->fetch_assoc();
+            $vote_sum = $res_vote['vote_sum'] ?? 0;
+            $stmt_vote->close();
+
+            // Kullanıcının oyu var mı?
+            $user_vote = 0;
+            if (isset($_SESSION['u_id'])) {
+                $sql_user_vote = "SELECT vote FROM votes WHERE post_id = ? AND user_id = ?";
+                $stmt_user_vote = $conn->prepare($sql_user_vote);
+                $stmt_user_vote->bind_param('ii', $post['id'], $_SESSION['u_id']);
+                $stmt_user_vote->execute();
+                $res_user_vote = $stmt_user_vote->get_result()->fetch_assoc();
+                $user_vote = $res_user_vote['vote'] ?? 0;
+                $stmt_user_vote->close();
+            }
+        ?>
+
+<div class="vote-container" data-post-id="<?php echo $post['id']; ?>">
+    <button class="btn-small brand hover-effect upvote-button <?php echo $user_vote == 1 ? 'active' : ''; ?>" style="border-radius: 36px !important;">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+    <span>|</span>
+    <button class="btn-small brand hover-effect downvote-button <?php echo $user_vote == -1 ? 'active' : ''; ?>" style="border-radius: 36px !important;" >
+        <i class="fa-solid fa-arrow-down"></i>
+    </button>
+    <span class="vote-count"><?php echo $post['vote_total'] ?? 0; ?></span>
+    
 </div>
 
-<?php include('templates/footer.php') ?>
+        <?php if (isset($_SESSION['u_role']) && $_SESSION['u_role'] === 'admin'): ?>
+            <form method="POST" style="display:inline;">
+                <input type="hidden" name="post_id" value="<?php echo $post['id']; ?>">
+                <input type="hidden" name="c_id" value="<?php echo (int)$post['c_id']; ?>">
+                <button type="submit" name="delete"  class="btn-small hover-effect btn brand" onclick="return confirm('Are you sure you want to delete?');">
+                    <i class="fa fa-trash"></i> Delete
+                </button>
+            </form>
+        <?php endif; ?>
+    </div>
+</div>
+
+
+    <?php endforeach; ?>
+    </div>  
+    <div class="g_right">
+        <h2>Most liked</h2>
+        <div class="card"></div>
+    </div>
+</div>
+<div style="position: fixed; bottom:0px;">
+<?php include('templates/footer.php') ?>    
+</div>
 
 </html>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+    bindVoteButtons();
+    bindCommentForms();
+});
+</script>
+

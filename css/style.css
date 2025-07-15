@@ -1,28 +1,30 @@
 
-        :root {
-            --main-bg: #EAF6FF;
-            --accent: #6EC1E4;
-            --mint: #A2D5F2;
-            --purple: #B388FF;
-            --text: #355C7D;
-            --card-bg: #FFFFFF;
-            --hover: #e9fae6;
-            --brand: linear-gradient(90deg, #6EC1E4 60%, #B388FF 100%);
-            --custom-card-bg: #e3d6ec; /* Daha nötr, hafif pembe-mor arası */
-            --main-font: 'Fredoka', 'Quicksand', cursive ;
-        }
-        /* Dark theme variables */
-        .dark-theme {
-            --main-bg: #232144; /* Koyu mor-lacivert arası arka plan */
-            --accent: #7dcfff;
-            --mint: #4fd1c5;
-            --purple: #7f5af0;
-            --text: #e0e6ed;
-            --card-bg: #2d313a;
-            --hover: #353b48;
-            --brand: linear-gradient(90deg, #7dcfff 60%, #7f5af0 100%);
-            --custom-card-bg: #4d0de444; /* Koyu mor-pembe arası kart rengi */
-        }
+:root {
+    --main-bg: #F5F7FA; /* Çok açık gri-mavi arası */
+    --accent: #4A90E2; /* Sakin mavi vurgu */
+    --mint: #7ED6DF;   /* Hafif turkuaz-mavi */
+    --purple: #9B8DE0; /* Yumuşak mor */
+    --text: #2E3A59;   /* Koyu mavi-gri metin */
+    --card-bg: #FFFFFF; /* Saf beyaz kartlar */
+    --hover: #DCE9F9;  /* Çok açık mavi hover */
+    --brand: linear-gradient(90deg, #4A90E2 60%, #9B8DE0 100%);
+    --custom-card-bg: #E6E9F0; /* Hafif gri-mavi arka plan */
+    --main-font: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.dark-theme {
+    --main-bg: #1E2028;   /* Koyu gri-mavi arası */
+    --accent: #4A90E2;    /* Aynı sakin mavi vurgu */
+    --mint: #6CB4EE;      /* Açık mavi */
+    --purple: #7A66CC;    /* Mor-mavi ton */
+    --text: #D1D9F0;      /* Açık mavi-gri metin */
+    --card-bg: #2C2F3C;   /* Koyu kart arka planı */
+    --hover: #3E4255;     /* Hover koyu gri-mavi */
+    --brand: linear-gradient(90deg, #4A90E2 60%, #7A66CC 100%);
+    --custom-card-bg: #383C4A; /* Koyu gri-mavi alt ton */
+    --main-font: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
 
         body {
             
@@ -30,6 +32,7 @@
             color: var(--text);
             font-family: var(--main-font);
         }
+        
         .brand {
             background: var(--brand) !important;
         }
@@ -53,7 +56,7 @@
         }
 
         .hover-effect{
-            transition: all 0.3s ease,background-color 0.3s ease;
+            transition: all 0.3s ease,background-color 0.3s ease !important;
         }
         .hover-effect:hover {
             transform: scale(1.05);
@@ -62,7 +65,7 @@
         }
 
         nav {
-            display: flex;
+            
             background-color: var(--card-bg) !important;
             border-bottom: 4px;
             border-bottom-left-radius: 36px;
@@ -71,7 +74,8 @@
             border-bottom-color: var(--accent);
         }
         .btn{
-            border-radius: 36px ;
+            
+            border-radius: 36px !important;
             color: var(--text);
             font-family: var(--main-font) !important;
         }
@@ -101,9 +105,7 @@
 
         }
         .profile-card{
-            left: 80px;
-            position:absolute;
-            top: 100px;
+            margin-left: 80px;
             width: 350px;
             height: auto;
             background-color: var(--custom-card-bg);
@@ -129,7 +131,6 @@
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
         }
         .filter{
-            position: absolute;
             height: 700px;
             width: 350px;
             border-radius: 32px;
@@ -137,15 +138,36 @@
             justify-content: center;
             align-items: center;
         }
+        .card-container {
+            display: grid;
+            justify-items: center;
+            grid-template-columns: 1fr 2fr 1fr; /* 3 sütun: sol 1 birim, orta 2 birim, sağ 1 birim */
+            gap: 20px;
+            height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .g_left, .g_center, .g_right {
+            padding: 20px;
+            border-radius: 10px;
+        }
         .card{
             background-color: var(--custom-card-bg);
             border-radius:14px;
-            width:100%; 
-            margin-bottom:43px; 
-            max-width:520px; 
-            margin-left:auto; 
-            margin-right:auto; 
+            width: 900px; 
+            max-width:520px;  
             padding: 0.5rem 0;
+        }
+        .card-action{
+            background-color: var(--custom-card-bg) !important;
+            margin-top: 0 !important;
+            margin-bottom: 30px !important;
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: space-evenly !important;
+            align-items: center !important;
+            margin-bottom: 12px;
+            border-radius:14px;
         }
         .form-card{
             justify-content:space-between;
@@ -164,14 +186,18 @@
             padding: 24px;
         }
         .filter-card{
+            position: sticky;
+            margin-left: 110px;
+            top: 85px;
             border-radius: 32px;
-            height: 600px;
-            width: 250px;
+            height: 500px;
+            width: 350px;
             background-color: var(--custom-card-bg);
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 10px;
+            z-index: 1;
 
         }
         .search-bar{
@@ -181,74 +207,148 @@
             border: 2px solid var(--accent) !important;
             border-radius: 10px !important;
         }
-        @media (max-width: 768px) {
 
-    body {
-        padding: 8px;
-    }
-
-    nav {
-        flex-direction: column;
-        align-items: center;
-        padding: 10px 0;
-    }
-
-    .brand-logo {
-        font-size: 24px !important;
-    }
-
-    .brand-text {
-        font-size: 1.3rem;
-        text-align: center;
-    }
-
-    .profile-card {
-        position: static;
-        width: 90%;
-        margin: 16px auto;
-        left: auto;
-        top: auto;
-    }
-
-    .filter {
-        position: static;
-        width: 90%;
-        height: auto;
-        margin: 16px auto;
-        padding: 16px;
-    }
-
-    .filter-card {
-        width: 100%;
-        height: auto;
-        padding: 16px;
-    }
-
-    .card,
-    .form-card {
-        width: 95%;
-        max-width: 100%;
-        margin: 16px auto;
-    }
-
-    .search-bar {
-        width: 100% !important;
-    }
-
-    .profile-btn {
-        width: 40px;
-        height: 40px;
-        top: 0;
-    }
-
-    .profile-card-img {
-        width: 90px;
-        height: 90px;
-    }
-
-    .form-card-content {
-        padding: 16px;
-    }
+.vote-container {
+    display: flex;
+    
+    
+    font-size: 18px;
+    margin: 0 8px;
 }
 
-        
+.vote-container button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 20px;
+    color: var(--brand);
+    transition: color 0.2s;
+}
+
+.vote-container button.active.upvote-button {
+    color: orange;
+}
+
+.vote-container button.active.downvote-button {
+    color: blue;
+}
+
+.vote-count {
+    margin: 4px 0;
+    font-weight: bold;
+    color: var(--accent);
+}
+.comment-form {
+    z-index: 1000;
+    background-color: var(--custom-card-bg);    
+    border-style: solid;
+    border-color: var(--accent);
+    border-width: 1px;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+.comment-input{
+    flex: 1 !important; 
+    border: 1px solid var(--accent) !important; 
+    border-radius: 20px !important; 
+    outline: none !important;
+    max-width: 50% !important;
+    
+}
+.comment-list{
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 8px;
+    align-items: flex-start;
+    background-color: transparent !important;
+}
+
+.details-card {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr); /* 12 kolonluk sistem */
+    grid-template-rows: repeat(12,minmax(80px,auto)); /* 6 satırlık sistem */
+    gap: 10px;                              /* Hücreler arası boşluk */
+    width: 100%;
+    padding: 20px;
+    background-color: var(--custom-card-bg);
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin: 0 auto;
+}
+.area-profile{
+    grid-column: 7/-1;
+    grid-row: 1/5;
+    border: 1px solid var(--accent);
+    border-radius: 16px;
+    padding: 20px;
+    overflow-wrap: break-word;
+    background-color: var(--hover);
+}
+.area-img {
+    grid-column: 1/7; 
+    grid-row: 1/5;
+}
+
+.area-img img {
+    border-radius: 16px;
+    width: 100%;
+    height: 100%; /* artık kapsayıcıya uyar */
+}
+
+.card-grid{
+    display: grid;
+    grid-template-columns: repeat(9, 1fr); /* 9 kolonluk sistem */
+    background-color: var(--hover);
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    grid-column: 1 / -1; /* 4. kolondan başlayarak 12. kolona kadar */
+    grid-row: 5/ 9;
+    margin-top: 20px;
+    padding: 5px;
+    max-height: fit-content;
+}
+.area-description {
+    grid-column: 1/7; 
+    margin-top: 10px;
+}
+.area-date {
+    grid-column: 9/9;
+    font-size: 14px;
+    color: var(--text);
+    margin-top: 10px;
+}
+.area-action {
+    grid-column: 1/-1; 
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 215px;
+    height: 55px;
+    justify-self: start;
+    align-self: end;
+}
+
+.area-comments {
+    grid-column: 1/-1; 
+    grid-row: 9/9;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+}
+
+.area-comment-list {
+    grid-column: 1/-1;
+    grid-row: 10/13;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px;
+    background-color: var(--custom-card-bg);
+    border-radius: 16px;
+    border: 1px solid var(--accent);
+}

@@ -17,10 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $form_data = ['title' => $title, 'description' => $description];
 
-    // Basit doğrulamalar
     if ($title === '') {
         $errors['title'] = 'Title required.';
-    } elseif (!preg_match('/^[a-zA-Z0-9\s\p{L}]+$/u', $title)) {
+    } elseif (!preg_match('/^[\p{L}\s\d.,;:!?()\'"\-\n\r]+$/u', $title)) {
         $errors['title'] = 'The title contains invalid characters.';
     }
 
@@ -28,7 +27,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors['description'] = 'Description required.';
     }
 
-    // Görsel kontrolü
     if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
         $errors['image'] = 'The image could not be loaded.';
     } else {
@@ -58,12 +56,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $upload_path = 'uploads/' . $new_image_name;
             move_uploaded_file($image_tmp, $upload_path);
 
-            // Veritabanına ekleme
-            $stmt = $conn->prepare("INSERT INTO spot (c_id, title, description, image, u_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+            $stmt = $conn->prepare("INSERT INTO posts (c_id, u_id, title, p_description, p_image, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
             if (!$stmt) {
                 $errors['db'] = "Prepare hatası: " . $conn->error;
             } else {
-                $stmt->bind_param("isssi", $c_id, $title_safe, $description_safe, $new_image_name, $userid);
+                $stmt->bind_param("iisss", $c_id, $userid, $title_safe, $description_safe, $new_image_name);
 
                 if ($stmt->execute()) {
                     $new_id = $conn->insert_id;

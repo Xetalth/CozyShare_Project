@@ -13,32 +13,35 @@ $form_data = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
-    $ingredients = trim($_POST['ingredients'] ?? '');
     $recipe = trim($_POST['recipe'] ?? '');
 
-    $form_data = ['title' => $title, 'ingredients' => $ingredients, 'recipe' => $recipe];
+    $form_data = ['title' => $title, 'recipe' => $recipe];
 
     // Basit doğrulamalar
     if ($title === '') {
         $errors['title'] = 'Title required.';
-    } elseif (!preg_match('/^[\p{L}\s]+$/u', $title)) {
+    } elseif (!preg_match('/^[\p{L}\s\d.,;:!?()\'"\-\n\r]+$/u', $title)) {
         $errors['title'] = 'The title can only contain letters and spaces.';
-    }
-
-    if ($ingredients === '') {
-        $errors['ingredients'] = 'Ingredents required.';
-    } elseif (!preg_match('/^([a-zA-Z\s]+)(,\s*[a-zA-Z\s]+)*$/', $ingredients)) {
-        $errors['ingredients'] = 'Contents must be separated by commas.';
     }
 
     if ($recipe === '') {
         $errors['recipe'] = 'Recipe required';
-    } elseif (!preg_match('/^[\p{L}\s\d.,;:!?()\'"\-\n\r]+$/u', $recipe)) {
-        $errors['recipe'] = 'The recipe description contains invalid characters.';
+    }
+
+    if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+        $errors['image'] = 'The image could not be loaded.';
+    } else {
+        $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
+        $image_name = $_FILES['image']['name'];
+        $image_tmp = $_FILES['image']['tmp_name'];
+        $ext = strtolower(pathinfo($image_name, PATHINFO_EXTENSION));
+
+        if (!in_array($ext, $allowed_exts)) {
+            $errors['image'] = 'Only JPG, PNG and GIF files are allowed.';
+        }
     }
 
     if (empty($errors)) {
-    // category tablosundan c_id al
     $category_name = 'Food Recipes';
     $category_query = $conn->prepare("SELECT c_id FROM category WHERE c_name = ?");
     $category_query->bind_param("s", $category_name);
@@ -48,14 +51,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($row = $result->fetch_assoc()) {
         $c_id = $row['c_id'];
 
-        // Güvenli veri
         $title_safe = $conn->real_escape_string($title);
-        $ingredients_safe = $conn->real_escape_string($ingredients);
         $recipe_safe = $conn->real_escape_string($recipe);
+        $new_image_name = uniqid('food_', true) . '.' . $ext;
+        $upload_path = 'uploads/' . $new_image_name;
+        move_uploaded_file($image_tmp, $upload_path);
 
-        // Veritabanına ekle
-        $stmt = $conn->prepare("INSERT INTO foods (c_id, title, ingredients, recipe, u_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-        $stmt->bind_param("isssi", $c_id, $title_safe, $ingredients_safe, $recipe_safe, $userid);
+        $stmt = $conn->prepare("INSERT INTO posts (c_id, u_id, title, p_description, p_image, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+        $stmt->bind_param("iisss", $c_id, $userid, $title_safe, $recipe_safe, $new_image_name);
 
         if ($stmt->execute()) {
             $new_food_id = $conn->insert_id;
@@ -78,17 +81,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <section class="container">
     <h4 class="center brand-text" style="font-size: 40px; margin-bottom: 24px;">Share a Food Recipe</h4>
-    <form action="add_food_recipe.php" method="POST" class="z-depth-1 form-card">
+    <form action="add_food_recipe.php" method="POST" enctype="multipart/form-data" class="z-depth-1 form-card">
         <div class="form-card-content">
             <label class="text">Title:</label>
             <input class="text" type="text" name="title" value="<?php echo htmlspecialchars($form_data['title'] ?? ''); ?>">
             <div class="red-text"><?php echo $errors['title'] ?? ''; ?></div>
-            <label class="text">Ingredients (with comma separated):</label>
-            <input class="text" type="text" name="ingredients" value="<?php echo htmlspecialchars($form_data['ingredients'] ?? ''); ?>">
-            <div class="red-text"><?php echo $errors['ingredients'] ?? ''; ?></div>
             <label class="text">Recipe description:</label>
             <textarea name="recipe" class="text materialize-textarea"><?php echo htmlspecialchars($form_data['recipe'] ?? ''); ?></textarea>
             <div class="red-text"><?php echo $errors['recipe'] ?? ''; ?></div>
+
+            <label class="text">An image about Food:</label>
+
+                    <div class="file-field input-field">
+                    <div class="btn brand hover-effect z-depth-1">
+                        <span>Upload Photo</span>
+                        <input type="file" name="image" accept="image/*">
+        <div class="red-text"><?php echo $errors['image'] ?? ''; ?></div>
+                    </div>
+                    <div class="file-path-wrapper">
+                        <input class="file-path validate" type="text" placeholder="">
+                    </div>
+                </div>
 
         <?php if (!empty($errors['db'])): ?>
             <div class="red-text"><?php echo $errors['db']; ?></div>

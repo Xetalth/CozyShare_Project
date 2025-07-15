@@ -2,7 +2,7 @@
     session_start(); 
     
     include('config/db_connect.php');
-    
+    include('templates/header.php');
     $username = $password = '';
 
     $errors = array('username' => '', 'password' => '');
@@ -32,11 +32,32 @@
                 $user = $result->fetch_assoc();
 
                 if (password_verify($password, $user['password'])) {
+                    // JWT Payload
+                    $payload = [
+                        'u_id' => $user['u_id'],
+                        'username' => $user['username'],
+                        'u_role' => $user['u_role'],
+                        'iat' => time(),    
+                        'exp' => time() + 3600, // 1 saat geçerli
+                        'jti' => bin2hex(random_bytes(8))
+                    ];
+                    
+                    $jwt = generate_jwt($payload);
+                    
+                    // Token'ı HTTP-only cookie olarak kaydet
+                    setcookie("jwt_token", $jwt, [
+                        'expires' => time() + 3600,
+                        'path' => '/',
+                        'secure' => isset($_SERVER['HTTPS']), // HTTPS varsa true
+                        'httponly' => true,
+                        'samesite' => 'Strict'
+                    ]);
                 
                     $_SESSION['username'] = $username;
                     $_SESSION['u_role'] = $user['u_role'];
                     $_SESSION['u_id'] = $user['u_id'];
-                    header('Location: index.php');
+                    
+                    header('Location: index.php');  
                     exit();
                 } else {
                     $errors['password'] = 'Wrong password <br />';
@@ -54,8 +75,6 @@
 
 <!DOCTYPE html>
 <html>
-
- <?php include('templates/header.php') ?>
 
     
 
