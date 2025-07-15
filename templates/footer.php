@@ -1,4 +1,4 @@
-<footer class="section " style="width: 100%; z-index: 100;">
+<footer class="section " style="width: 100%; z-index: 2000;">
     <div class="center">
         &copy; 2025 Cozy Share <span style="font-size:1.3em;">🍕</span> Tüm hakları saklıdır.
     </div>

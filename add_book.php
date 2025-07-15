@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Doğrulamalar
     if ($title === '') {
         $errors['title'] = 'Title required';
-    } elseif (!preg_match('/^[a-zA-Z0-9\s\p{L}]+$/u', $title)) {
+    } elseif (!preg_match('/^[\p{L}\s\d.,;:!?()\'"\-\n\r]+$/u', $title)) {
         $errors['title'] = 'The title contains invalid characters.';
     }
 
@@ -51,17 +51,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($row = $result->fetch_assoc()) {
         $c_id = $row['c_id'];
 
-        // Görsel yükle
+        $title_safe = $conn->real_escape_string($title);
+        $description_safe = $conn->real_escape_string($description);
         $new_image_name = uniqid('book_', true) . '.' . $ext;
         $upload_path = 'uploads/' . $new_image_name;
         move_uploaded_file($image_tmp, $upload_path);
 
-        // Kitap verisini ekle
-        $stmt = $conn->prepare("INSERT INTO book (c_id, title, b_description, b_image, u_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+        $stmt = $conn->prepare("INSERT INTO posts (c_id, u_id, title, p_description, p_image, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
         if (!$stmt) {
             $errors['db'] = "Prepare hatası: " . $conn->error;
         } else {
-            $stmt->bind_param("isssi", $c_id, $title, $description, $new_image_name, $userid);
+            $stmt->bind_param("iisss", $c_id, $userid, $title_safe, $description_safe, $new_image_name);
 
             if ($stmt->execute()) {
                 // Son eklenen kitap ID'sini al

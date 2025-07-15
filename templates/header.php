@@ -1,7 +1,7 @@
 <?php
     
     include('config/db_connect.php');
-
+    
     if (isset($_SESSION['u_id'])) {
         $user_id = $_SESSION['u_id'];
         $sql = "SELECT username, profile_image FROM users WHERE u_id = ?";
@@ -18,10 +18,36 @@
         $name = 'Guest';
         $profile_image = 'default-profile.png'; // Giriş yapılmamışsa varsayılan resim
     }
+
+    function generate_jwt($payload, $secret = 'gizli_key', $algo = 'HS256') {
+    $header = ['typ' => 'JWT', 'alg' => $algo];
+    $base64UrlHeader = rtrim(strtr(base64_encode(json_encode($header)), '+/', '-_'), '=');
+    $base64UrlPayload = rtrim(strtr(base64_encode(json_encode($payload)), '+/', '-_'), '=');
+    $signature = hash_hmac('sha256', $base64UrlHeader . "." . $base64UrlPayload, $secret, true);
+    $base64UrlSignature = rtrim(strtr(base64_encode($signature), '+/', '-_'), '=');
+    return $base64UrlHeader . "." . $base64UrlPayload . "." . $base64UrlSignature;
+}
+
+function verify_jwt($token, $secret = 'gizli_key') {
+    $parts = explode('.', $token);
+    if (count($parts) !== 3) return false;
+
+    [$headerB64, $payloadB64, $signatureB64] = $parts;
+
+    $signatureCheck = hash_hmac('sha256', $headerB64 . '.' . $payloadB64, $secret, true);
+    $signatureCheckB64 = rtrim(strtr(base64_encode($signatureCheck), '+/', '-_'), '=');
+
+    if (!hash_equals($signatureB64, $signatureCheckB64)) return false;
+
+    $payload = json_decode(base64_decode(strtr($payloadB64, '-_', '+/')), true);
+    if ($payload['exp'] < time()) return false;
+
+    return $payload; // Token geçerli, payload'ı döndür
+}
 ?>
 <head>
     <title>Cozy Share</title>
-
+    <script src="config/script.js"></script>
     <!-- head kısmına bu eklemeyi yapın -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     
@@ -52,18 +78,19 @@
                             <img src="uploads/<?php echo htmlspecialchars($profile_image); ?>" alt="Profil Resmi">
                         </a>
                     </li>
-                    <li><a href="add.php" class="hover-effect btn brand z-depth-1" title="Paylaşım Yap">Paylaş</a></li>
+                    <li><a href="add.php" class="hover-effect btn brand z-depth-1" title="Share">Share</a></li>
                     <li><a href="log_out.php" class="hover-effect btn brand z-depth-1" title="Çıkış">
                         <i class="fa-solid fa-power-off"></i></a>
                     </li>
                 <?php else: ?>
-                    <li><a href="log_in.php" class="hover-effect btn brand z-depth-1">Giriş Yap</a></li>
+                    <li><a href="log_in.php" class="hover-effect btn brand z-depth-1">Log In</a></li>
                 <?php endif; ?>
                 
             </ul>
         </div>
     </nav>
     <script>
+        
         // Theme toggle logic
         const themeToggle = document.getElementById('theme-toggle');
     const themeText = document.getElementById('theme-toggle-text');
@@ -97,4 +124,6 @@
             setTheme(!isCurrentlyDark);
         });
     });
+    
+
     </script>

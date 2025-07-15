@@ -16,20 +16,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = trim($_POST['description'] ?? '');
     $form_data = ['title' => $title, 'description' => $description];
 
-    // Doğrulamalar
+
     if ($title === '') {
         $errors['title'] = 'Title required.';
-    } elseif (!preg_match('/^[a-zA-Z\s]+$/', $title)) {
+    } elseif (!preg_match('/^[\p{L}\s\d.,;:!?()\'"\-\n\r]+$/u', $title)) {
         $errors['title'] = 'The title can only contain letters and spaces.';
     }
 
     if ($description === '') {
         $errors['description'] = 'Descrpiton required';
-    } elseif (!preg_match('/^[\p{L}\s\d.,;:!?()\'"\-\n\r]+$/u', $description)) {
-        $errors['description'] = 'The descrpiton contains invalid characters.';
     }
 
-    // Görsel kontrolü
     if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
         $errors['image'] = 'The image could not be loaded.';
     } else {
@@ -53,19 +50,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($row = $result->fetch_assoc()) {
             $c_id = $row['c_id'];
 
-            // Görseli kaydet
+            $title_safe = $conn->real_escape_string($title);
+            $description_safe = $conn->real_escape_string($description);
             $new_image_name = uniqid('img_', true) . '.' . $ext;
             $upload_path = 'uploads/' . $new_image_name;
             move_uploaded_file($image_tmp, $upload_path);
 
-            $stmt = $conn->prepare("INSERT INTO travel (c_id, title, t_description, t_image, u_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+            $stmt = $conn->prepare("INSERT INTO posts (c_id, u_id, title, p_description, p_image, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
             if (!$stmt) {
                 $errors['db'] = "Prepare hatası: " . $conn->error;
             } else {
-                $stmt->bind_param("isssi", $c_id, $title, $description, $new_image_name, $userid);
+                $stmt->bind_param("iisss",$c_id, $userid, $title_safe, $description_safe, $new_image_name);
 
                 if ($stmt->execute()) {
-                    // Yeni eklenen travel kaydının ID'sini al
                     $new_id = $conn->insert_id;
 
                     header('Location: index.php');
