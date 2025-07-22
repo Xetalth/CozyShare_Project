@@ -31,12 +31,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors['image'] = 'The image could not be loaded.';
     } else {
         $allowed_exts = ['jpg', 'jpeg', 'png', 'gif'];
+        $min_width = 1920;
+        $min_height = 1080;
+
         $image_name = $_FILES['image']['name'];
         $image_tmp = $_FILES['image']['tmp_name'];
+        $image_size = $_FILES['image']['size'];
         $ext = strtolower(pathinfo($image_name, PATHINFO_EXTENSION));
 
         if (!in_array($ext, $allowed_exts)) {
             $errors['image'] = 'Only JPG, PNG and GIF files are allowed.';
+        } else{
+            $dimesions = getimagesize($image_tmp);
+            if ($dimesions === false) {
+                $errors['image'] = 'The image file is not valid.';
+            } else {
+                list($width, $height) = $dimesions;
+
+                if($width < $min_width || $height < $min_height) {
+                    $errors['image'] = "The image must be at least {$min_width}x{$min_height} pixels.";
+                } elseif ($image_size > 10 * 1024 * 1024) { // 5 MB limit
+                    $errors['image'] = 'The image size must not exceed 10 MB.';
+
+                }
+            }
         }
     }
 

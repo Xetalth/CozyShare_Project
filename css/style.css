@@ -105,7 +105,9 @@
 
         }
         .profile-card{
-            margin-left: 80px;
+            margin-left: 130px;
+            position: relative;
+            top: 123px;
             width: 350px;
             height: auto;
             background-color: var(--custom-card-bg);
@@ -140,16 +142,49 @@
         }
         .card-container {
             display: grid;
-            justify-items: center;
-            grid-template-columns: 1fr 2fr 1fr; /* 3 sütun: sol 1 birim, orta 2 birim, sağ 1 birim */
-            gap: 20px;
-            height: 100vh;
+            grid-template-columns: repeat(3, 1fr); /* 12 kolonluk sistem */
+            grid-template-rows: repeat(12,minmax(80px,auto)); /* 6 satırlık sistem */
+            gap: 10px;                              /* Hücreler arası boşluk */
+            width: 100%;
             padding: 20px;
-            box-sizing: border-box;
+            background-color: transparent;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin: 0 auto;
         }
-        .g_left, .g_center, .g_right {
-            padding: 20px;
-            border-radius: 10px;
+        .area-filter{
+            grid-column: 1/1;
+            grid-row: 1/13;
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+        }
+        .area-posts{
+            grid-column: 2/2;
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .area-liked{
+            grid-column: 3/3;
+            grid-row: 1/13;
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .area-your-profile{
+            grid-column: 1/2;
+            grid-row: 1/13;
+
+        }
+        .area-your-comments{
+            grid-column: 3/3;
+            grid-row: 1/13;
+            display: flex;
+            align-items: center;
+            flex-direction: column;
         }
         .card{
             background-color: var(--custom-card-bg);
@@ -166,6 +201,7 @@
             flex-direction: row !important;
             justify-content: space-evenly !important;
             align-items: center !important;
+            width: 500px !important;
             margin-bottom: 12px;
             border-radius:14px;
         }
@@ -188,7 +224,7 @@
         .filter-card{
             position: sticky;
             margin-left: 110px;
-            top: 85px;
+            top: 210px;
             border-radius: 32px;
             height: 500px;
             width: 350px;
@@ -263,6 +299,16 @@
     margin-bottom: 8px;
     align-items: flex-start;
     background-color: transparent !important;
+}
+.delete-comment-btn {
+    position: relative;
+    left: 10px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    color: #888;
+    padding: 0;
 }
 
 .details-card {

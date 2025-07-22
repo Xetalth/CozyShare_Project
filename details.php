@@ -9,36 +9,6 @@ if (!isset($_GET['id'])) {
 }
 $post_id = intval($_GET['id']);
 
-// Silme işlemi
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'], $_POST['post_id'])) {
-    $post_id_to_delete = intval($_POST['post_id']);
-
-    // 1. Resim dosyasını bul
-    $get_image_sql = "SELECT p_image FROM posts WHERE id = ?";
-    $stmt = $conn->prepare($get_image_sql);
-    $stmt->bind_param("i", $post_id_to_delete);
-    $stmt->execute();
-    $stmt->bind_result($image_name);
-    $stmt->fetch();
-    $stmt->close();
-
-    // 2. Eğer varsa dosyayı sil
-    if (!empty($image_name)) {
-        $image_path = 'uploads/' . $image_name;
-        if (file_exists($image_path)) {
-            unlink($image_path); // Dosyayı sil
-        }
-    }
-
-    // 3. Postu veritabanından sil
-    $sql_del = "DELETE FROM posts WHERE id = ?";
-    $stmt = $conn->prepare($sql_del);
-    $stmt->bind_param("i", $post_id_to_delete);
-    $stmt->execute();
-
-    header("Location: " . $_SERVER['PHP_SELF']);
-    exit;
-}
 
 // Postu ve kullanıcıyı çek
 $sql = "SELECT posts.*,users.*, category.c_name,
@@ -148,14 +118,11 @@ function formatRole($u_role) {
                         </button>
                         <span class="vote-count"><?= $post['vote_total'] ?? 0; ?></span>
                     </div>
-                    <?php if (isset($_SESSION['u_role']) && $_SESSION['u_role'] === 'admin'): ?>
-                    <form method="POST" style="display:inline;">
-                        <input type="hidden" name="post_id" value="<?= $post['id']; ?>">
-                        <button type="submit" name="delete" class="btn-small hover-effect btn brand" onclick="return confirm('Are you sure you want to delete?');">
-                            <i class="fa fa-trash"></i> 
-                        </button>
-                    </form>
-                    <?php endif; ?>
+                    <?php if (isset($_SESSION['u_role']) && $_SESSION['u_role'] === 'admin' || (isset($_SESSION['u_id']) && $_SESSION['u_id'] == $post['u_id'])): ?>
+                <button class="delete-post-btn btn-small hover-effect btn brand" type="button" data-post-id="<?= $post['id'] ?>">
+                    <i class="fa fa-trash"></i>
+                </button>
+                <?php endif; ?>
                 </div>
             </div>
             <div class="area-comments">
@@ -189,6 +156,11 @@ function formatRole($u_role) {
                             </div>
                             <div>
                                 <?= nl2br(htmlspecialchars($c['comment'])) ?>
+                               <?php if ((isset($_SESSION['u_role']) && $_SESSION['u_role'] === 'admin') || (isset($_SESSION['u_id']) && $_SESSION['u_id'] == $c['user_id'])): ?>
+                                <button class="delete-comment-btn " data-comment-id="<?= $c['id'] ?>">
+                                    <i class="fa fa-times"></i>
+                                </button>
+                                <?php endif; ?>
                             </div> 
                         </div>
                     <?php endwhile; $comment_stmt->close(); } ?>               
@@ -199,45 +171,36 @@ function formatRole($u_role) {
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-    bindVoteButtons();
-    bindCommentForms();
+        
+        initApp({ setupDeletePostButtons: false });
 });
 
-function timeAgo(dateString) {
-    const now = new Date();
-    const past = new Date(dateString);
-    const diffInSeconds = Math.floor((now - past) / 1000);
 
-    if (diffInSeconds < 5) {
-        return 'now';
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    const deleteBtn = document.querySelector('.delete-post-btn');
+    if (!deleteBtn) return;
 
-    const intervals = [
-        { label: 'year', seconds: 31536000 },
-        { label: 'month', seconds: 2592000 },
-        { label: 'week', seconds: 604800 },
-        { label: 'day', seconds: 86400 },
-        { label: 'hour', seconds: 3600 },
-        { label: 'minute', seconds: 60 },
-        { label: 'second', seconds: 1 }
-    ];
+    deleteBtn.addEventListener('click', () => {
+        const postId = deleteBtn.dataset.postId;
+        if (!confirm('Are you sure you want to delete this post?')) return;
 
-    for (const interval of intervals) {
-        const count = Math.floor(diffInSeconds / interval.seconds);
-        if (count >= 1) {
-            return `${count} ${interval.label} ago`;
-        }
-    }
-}
-
-document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll(".comment-list").forEach(comment => {
-        const dateStr = comment.dataset.createdAt;
-        const timeAgoEl = comment.querySelector(".time-ago");
-
-        if (dateStr && timeAgoEl) {
-            timeAgoEl.textContent = timeAgo(dateStr);
-        }
+        fetch('delete.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'type=post&id=' + encodeURIComponent(postId)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Silme başarılı, ana sayfaya yönlendir
+                window.location.href = 'index.php';
+            } else {
+                alert('Silinemedi: ' + data.message);
+            }
+        })
+        .catch(() => alert('Sunucuya bağlanırken hata oluştu.'));
     });
 });
 

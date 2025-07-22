@@ -4,39 +4,6 @@ include('config/db_connect.php');
 $user_id = isset($_SESSION['u_id']) ? intval($_SESSION['u_id']) : 0;
 
 
-
-// Silme işlemi
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'], $_POST['post_id'])) {
-    $post_id_to_delete = intval($_POST['post_id']);
-
-    // 1. Resim dosyasını bul
-    $get_image_sql = "SELECT p_image FROM posts WHERE id = ?";
-    $stmt = $conn->prepare($get_image_sql);
-    $stmt->bind_param("i", $post_id_to_delete);
-    $stmt->execute();
-    $stmt->bind_result($image_name);
-    $stmt->fetch();
-    $stmt->close();
-
-    // 2. Eğer varsa dosyayı sil
-    if (!empty($image_name)) {
-        $image_path = 'uploads/' . $image_name;
-        if (file_exists($image_path)) {
-            unlink($image_path); // Dosyayı sil
-        }
-    }
-
-    // 3. Postu veritabanından sil
-    $sql_del = "DELETE FROM posts WHERE id = ?";
-    $stmt = $conn->prepare($sql_del);
-    $stmt->bind_param("i", $post_id_to_delete);
-    $stmt->execute();
-
-    header("Location: " . $_SERVER['PHP_SELF']);
-    exit;
-}
-
-
 $category_id = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
@@ -62,6 +29,20 @@ $where_sql
 ORDER BY posts.created_at DESC, posts.id DESC
 ";
 
+$most_liked_sql = "
+SELECT posts.*, users.username, category.c_name,
+       COALESCE(SUM(v.vote), 0) AS vote_total
+FROM posts
+JOIN users ON posts.u_id = users.u_id
+JOIN category ON posts.c_id = category.c_id
+LEFT JOIN votes v ON posts.id = v.post_id
+GROUP BY posts.id
+ORDER BY vote_total DESC
+LIMIT 3
+";
+$most_liked_result = mysqli_query($conn, $most_liked_sql);
+$most_liked_posts = mysqli_fetch_all($most_liked_result, MYSQLI_ASSOC);
+
 
 $result = mysqli_query($conn, $sql);
 if (!$result) {
@@ -78,11 +59,11 @@ $posts = mysqli_fetch_all($result, MYSQLI_ASSOC);
 
 
 
-<h4 class="center brand-text" style="font-size: 40px; margin-bottom: 24px;">Posts</h4>
+
 <div class="card-container">
-    <div class="g_left">
+    <div class="area-filter">
         <form class="z-depth-1 filter-card " method="GET" action="index.php">
-            <h5 class="text">Filters</h5>
+            <h4 class="center brand-text" style="font-size: 40px; margin-bottom: 24px;">Filters</h4>
             <button class="btn-small hover-effect brand btn" type="submit" name="category_id" value="0">All Posts</button>
             <button class="btn-small hover-effect brand btn" type="submit" name="category_id" value="1">🍕 Food</button>
             <button class="btn-small hover-effect brand btn" type="submit" name="category_id" value="2">✈️ Vacation/View</button>
@@ -110,11 +91,19 @@ $posts = mysqli_fetch_all($result, MYSQLI_ASSOC);
     </div>
  
 
-    <div class="g_center">              
+    <div class="area-posts">              
     <!-- POST ALANI -->
     <div style="flex: 1; max-width: 650px;"></div>
+    <h4 class="center brand-text" style="font-size: 40px; margin-bottom: 24px;">Posts</h4>
+
+    <?php if (count($posts) === 0): ?>
+        <p class="card text center" >
+            Nothing posted in this category.
+        </p>
+    <?php endif; ?>
+    
     <?php foreach($posts as $post): ?>
-        <div class="card hover-effect z-depth-1" >
+        <div class="card hover-effect z-depth-1" id="post-<?= $post['id']; ?>">
             <div class="center" style="margin: 10px 8px;" >
                 <a class="btn-small btn hover-effect brand z-depth-1" href="profile.php?u_id=<?php echo $post['u_id']; ?>">
                     <?php echo htmlspecialchars($post['username']); ?> <i class="fa-regular fa-user" style="margin-left:3px; font-size:0.95em;"></i>
@@ -145,13 +134,13 @@ $posts = mysqli_fetch_all($result, MYSQLI_ASSOC);
                     </div>
                 <?php endif; ?>
 
-                    <form class="comment-form" data-post-id="<?= $post['id']; ?>" method="post" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
-                        <input type="hidden" name="post_id" value="<?= $post['id']; ?>">
-                        <input class="text comment-input" autocomplete="off" type="text" name="comment" ></input>
-                        <button type="submit" class="btn-small hover-effect brand btn">
-                            <i class="fa-solid fa-arrow-right"></i>
-                        </button>
-                    </form>
+                    <form class="comment-form" data-post-id="<?= $post['id']; ?>" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+
+    <input class="text comment-input" autocomplete="off" type="text" name="comment" required placeholder="Add a comment...">
+    <button class="btn-small hover-effect brand btn" type="submit">
+        <i class="fa-solid fa-arrow-right"></i>
+    </button>
+</form>
                 <div id="comments-<?= $post['id']; ?>">
                     <?php
                         // Yorumları çekme
@@ -174,6 +163,11 @@ $posts = mysqli_fetch_all($result, MYSQLI_ASSOC);
                             </div>
                             <div>
                                 <?= nl2br(htmlspecialchars($c['comment'])) ?>
+                                <?php if ((isset($_SESSION['u_role']) && $_SESSION['u_role'] === 'admin') || (isset($_SESSION['u_id']) && $_SESSION['u_id'] == $c['user_id'])): ?>
+                                <button class="delete-comment-btn " data-comment-id="<?= $c['id'] ?>">
+                                    <i class="fa fa-times"></i>
+                                </button>
+                                <?php endif; ?>     
                             </div> 
                         </div>
                     <?php endwhile; $comment_stmt->close(); } ?>               
@@ -219,74 +213,73 @@ $posts = mysqli_fetch_all($result, MYSQLI_ASSOC);
     <span class="vote-count"><?php echo $post['vote_total'] ?? 0; ?></span>
     
 </div>
-
-        <?php if (isset($_SESSION['u_role']) && $_SESSION['u_role'] === 'admin'): ?>
-            <form method="POST" style="display:inline;">
-                <input type="hidden" name="post_id" value="<?php echo $post['id']; ?>">
-                <input type="hidden" name="c_id" value="<?php echo (int)$post['c_id']; ?>">
-                <button type="submit" name="delete"  class="btn-small hover-effect btn brand" onclick="return confirm('Are you sure you want to delete?');">
+                <?php if ((isset($_SESSION['u_role']) && $_SESSION['u_role'] === 'admin') || (isset($_SESSION['u_id']) && $_SESSION['u_id'] == $post['u_id'])): ?>
+                <button class="delete-post-btn btn-small hover-effect btn brand" type="button" data-post-id="<?= $post['id'] ?>">
                     <i class="fa fa-trash"></i> Delete
                 </button>
-            </form>
-        <?php endif; ?>
+                <?php endif; ?>
     </div>
 </div>
 
 
     <?php endforeach; ?>
     </div>  
-    <div class="g_right">
-        <h2>Most liked</h2>
-        <div class="card"></div>
+    <div class="area-liked">
+        <h4 class="center brand-text" style="font-size: 40px; margin-bottom: 24px;">Top 3 Posts</h4>
+        <?php if (!empty($most_liked_posts)): ?>
+    <?php 
+        $emoji_map = [
+            '1' => '🍕',
+            '2' => '📚',
+            '3' => '🎬',
+            '4' => '✈️',
+            '5' => '📍',
+        ];
+    ?>
+    <?php foreach ($most_liked_posts as $top_post): ?>
+        <div class="card hover-effect z-depth-1" style="margin-top: 12px; padding: 12px;">
+            <h6 class="text">
+                <?= ($emoji_map[$top_post['c_id']] ?? '') . ' ' . htmlspecialchars($top_post['title']); ?>
+            </h6>
+            <p class="text">
+                <?= nl2br(htmlspecialchars(stripcslashes(mb_substr(strip_tags($top_post['p_description']), 0, 100)))) . '...'; ?>
+            </p>
+            <?php if (!empty($top_post['p_image'])): ?>
+                <div style="margin-top:8px;">
+                    <img src="uploads/<?= htmlspecialchars($top_post['p_image']); ?>" alt="<?= htmlspecialchars($top_post['title']); ?>" style="max-width:100%; border-radius: 10px;">
+                </div>
+            <?php endif; ?>
+            <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+                <a class="btn-small btn hover-effect brand z-depth-1" href="details.php?id=<?= $top_post['id']; ?>">Details</a>
+                <?php
+    $vote_count = (int)$top_post['vote_total'];
+    if ($vote_count > 0) {
+        $vote_icon = '<i class="fa-solid fa-arrow-up" style="color: green;"></i>';
+    } elseif ($vote_count < 0) {
+        $vote_icon = '<i class="fa-solid fa-arrow-down" style="color: red;"></i>';
+    } else {
+        $vote_icon = '<i class="fa-solid fa-minus" style="color: gray;"></i>'; // İsteğe bağlı
+    }
+?>
+<span style="font-weight: bold;">
+    <?= $vote_icon ?> <?= $vote_count ?>
+</span>
+            </div>
+        </div>
+    <?php endforeach; ?>
+<?php else: ?>
+    <p class="text">No posts found.</p>
+<?php endif; ?>
     </div>
 </div>
 <div style="position: fixed; bottom:0px;">
 <?php include('templates/footer.php') ?>    
 </div>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-    bindVoteButtons();
-    bindCommentForms();
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
 });
 
-function timeAgo(dateString) {
-    const now = new Date();
-    const past = new Date(dateString);
-    const diffInSeconds = Math.floor((now - past) / 1000);
-
-    if (diffInSeconds < 5) {
-        return 'now';
-    }
-
-    const intervals = [
-        { label: 'year', seconds: 31536000 },
-        { label: 'month', seconds: 2592000 },
-        { label: 'week', seconds: 604800 },
-        { label: 'day', seconds: 86400 },
-        { label: 'hour', seconds: 3600 },
-        { label: 'minute', seconds: 60 },
-        { label: 'second', seconds: 1 }
-    ];
-
-    for (const interval of intervals) {
-        const count = Math.floor(diffInSeconds / interval.seconds);
-        if (count >= 1) {
-            return `${count} ${interval.label} ago`;
-        }
-    }
-}
-
-
-document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll(".comment-list").forEach(comment => {
-        const dateStr = comment.dataset.createdAt;
-        const timeAgoEl = comment.querySelector(".time-ago");
-
-        if (dateStr && timeAgoEl) {
-            timeAgoEl.textContent = timeAgo(dateStr);
-        }
-    });
-});
 </script>
 </html>
 
